@@ -1,0 +1,105 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ── Light ── */
+:root {
+  --bg:           #faf8f5;
+  --surface:      #ffffff;
+  --surface-2:    #f5f2ee;
+  --surface-3:    #ede8e0;
+  --primary:      #1a5c38;
+  --primary-lt:   #e8f4ee;
+  --primary-dk:   #134a2c;
+  --accent:       #c9933a;
+  --accent-lt:    #fdf3e3;
+  --danger:       #e74c3c;
+  --danger-lt:    #fff0f0;
+  --warning:      #e67e22;
+  --warning-lt:   #fff8e1;
+  --success:      #27ae60;
+  --success-lt:   #e8f8ef;
+  --text:         #1c1c1c;
+  --text-2:       #555555;
+  --text-3:       #999999;
+  --border:       #e6e0d8;
+  --shadow-sm:    0 1px 4px rgba(0,0,0,0.06);
+  --shadow:       0 2px 12px rgba(0,0,0,0.08);
+  --shadow-lg:    0 12px 40px rgba(0,0,0,0.13);
+  --shadow-xl:    0 24px 80px rgba(0,0,0,0.18);
+  --font-display: 'Cormorant Garamond', Georgia, serif;
+  --font-body:    'DM Sans', system-ui, -apple-system, sans-serif;
+  --header-bg:    rgba(250,248,245,0.96);
+  --nav-bg:       #ffffff;
+  --input-bg:     #faf8f5;
+  --transition:   0.18s ease;
+}
+
+/* ── Dark ── */
+[data-theme="dark"] {
+  --bg:           #0d0d0d;
+  --surface:      #1a1a1a;
+  --surface-2:    #222222;
+  --surface-3:    #2a2a2a;
+  --primary:      #52c985;
+  --primary-lt:   #0d2b1a;
+  --primary-dk:   #6ed99a;
+  --accent:       #f0b355;
+  --accent-lt:    #2a1a00;
+  --danger:       #e74c3c;
+  --danger-lt:    #2d0a0a;
+  --text:         #f0f0f0;
+  --text-2:       #aaaaaa;
+  --text-3:       #666666;
+  --border:       #2e2e2e;
+  --shadow-sm:    0 1px 4px rgba(0,0,0,0.5);
+  --shadow:       0 2px 12px rgba(0,0,0,0.5);
+  --shadow-lg:    0 12px 40px rgba(0,0,0,0.7);
+  --shadow-xl:    0 24px 80px rgba(0,0,0,0.8);
+  --header-bg:    rgba(13,13,13,0.96);
+  --nav-bg:       #1a1a1a;
+  --input-bg:     #1f1f1f;
+}
+
+/* ── Base ── */
+html {
+  font-family: var(--font-body);
+  background:  var(--bg);
+  color:       var(--text);
+  -webkit-font-smoothing:  antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  scroll-behavior: smooth;
+}
+body         { min-height: 100vh; }
+button       { cursor: pointer; font-family: var(--font-body); }
+input, select, textarea { font-family: var(--font-body); color-scheme: light dark; }
+a            { color: inherit; text-decoration: none; }
+img          { display: block; }
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar       { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
+
+/* ── Listing card ── */
+.immo-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+  transition: transform 0.22s ease, box-shadow 0.22s ease;
+  box-shadow: var(--shadow-sm);
+}
+.immo-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); }
+.immo-card:hover img { transform: scale(1.04); }
+.immo-card img { transition: transform 0.4s ease; }
+
+/* ── Responsive ── */
+@media (max-width: 640px)  { .desktop-only { display: none !important; } }
+@media (min-width: 641px)  { .mobile-only  { display: none !important; } }
+
+/* ── Hide number input spinners ── */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+input[type="number"] { -moz-appearance: textfield; }
