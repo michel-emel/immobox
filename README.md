@@ -10,7 +10,6 @@
 |-----|-------|
 | `/` | Site public |
 | `/admin` | Panel admin (mot de passe : voir DB `settings`) |
-| `/superadmin` | Super admin (mot de passe : voir DB `settings`) |
 
 ## Variables d'environnement (Vercel)
 ```
