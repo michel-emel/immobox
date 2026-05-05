@@ -58,9 +58,10 @@ export default function ListingPage({ params }) {
   }
 
   async function handleContact(method) {
-    if (!form.name||!form.phone) { setFormErr(t.requiredFields); return; }
-    if (isHotelType(listing.category)&&(!form.checkIn||!form.checkOut)) { setFormErr(t.requiredFields); return; }
-    if (isResidential(listing.category)&&contactType==='visite'&&(!form.date||!form.slot)) { setFormErr(t.requiredFields); return; }
+    if (!form.name||!form.phone) { setFormErr(t.required); return; }
+    if (!/^6\d{8}$/.test(form.phone)) { setFormErr("Numéro invalide — 9 chiffres commençant par 6 (ex: 655123456)."); return; }
+    if (isHotelType(listing.category)&&(!form.checkIn||!form.checkOut)) { setFormErr(t.required); return; }
+    if (isResidential(listing.category)&&contactType==='visite'&&(!form.date||!form.slot)) { setFormErr(t.required); return; }
     setFormBusy(true); setFormErr("");
     try {
       const ct = isHotelType(listing.category)?'reservation':contactType;
@@ -78,9 +79,9 @@ export default function ListingPage({ params }) {
       setSuccess({clientNumber:result.clientNumber});
       setListing(p=>({...p,interest_count:(p.interest_count||0)+1}));
       const cityLabel=cities.find(c=>c.key===listing.city)?.label||listing.city;
-      const owner=listing.owner_phone||waNumber;
+      const owner=waNumber;
       if (method==='wa') window.open(buildWAMsg({...listing,cityLabel},{...form,contactType},formatPhone(owner),lang),'_blank');
-      else               window.location.href=`tel:${formatPhone(owner)}`;
+      else if (method==='call') window.location.href=`tel:${formatPhone(owner)}`;
     } catch(e) { setFormErr("Erreur : "+e.message); }
     setFormBusy(false);
   }
@@ -129,7 +130,7 @@ export default function ListingPage({ params }) {
         <div style={{borderRadius:16,overflow:"hidden",position:"relative",background:"#f0ece5",aspectRatio:"16/9"}}>
           <img src={photos[photoIdx]} alt={listing.title} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}} onError={e=>e.target.src=PH}/>
           <span style={{position:"absolute",top:10,left:10,padding:"3px 12px",borderRadius:20,background:listing.type==="vente"?"var(--accent)":listing.type==="reservation"?"#7b2fa8":"var(--primary)",color:"white",fontSize:11,fontWeight:700,textTransform:"uppercase"}}>
-            {listing.type==="vente"?t.saleLabel:listing.type==="reservation"?t.reserveLabel:t.rentLabel}
+            {listing.type==="vente"?t.saleL:listing.type==="reservation"?t.reserveL:t.rentL}
           </span>
           {!isAvail&&(
             <div style={{position:"absolute",inset:0,background:"rgba(0,0,0,0.48)",display:"flex",alignItems:"center",justifyContent:"center"}}>
@@ -216,13 +217,13 @@ export default function ListingPage({ params }) {
               <div style={{padding:"28px 18px",textAlign:"center"}}>
                 <div style={{fontSize:48,marginBottom:12}}>🎉</div>
                 <h3 style={{fontFamily:"var(--font-display)",fontSize:20,color:"var(--primary)",marginBottom:8}}>{t.successTitle(success.clientNumber)}</h3>
-                <p style={{color:"var(--text-2)",lineHeight:1.65,fontSize:13,marginBottom:16}}>{t.successSub}</p>
-                <button onClick={()=>{setSuccess(null);setView("info");setForm({...EMPTY});}} style={{padding:"9px 20px",borderRadius:10,border:"1.5px solid var(--border)",background:"transparent",cursor:"pointer",color:"var(--text)",fontSize:13}}>Faire une autre demande</button>
+                <p style={{color:"var(--text-2)",lineHeight:1.65,fontSize:13,marginBottom:20}}>{t.successSub}</p>
+                <button onClick={()=>{setSuccess(null);setView("info");setForm({...EMPTY});}} style={{padding:"11px 28px",borderRadius:11,border:"1.5px solid #cccccc",background:"transparent",cursor:"pointer",color:"#333333",fontSize:14,fontWeight:500}}>← Retour à l'annonce</button>
               </div>
             ):view==="info"?(
               <div style={{padding:"14px"}}>
                 <button onClick={()=>setView("contact")} style={{width:"100%",padding:"13px",borderRadius:11,border:"none",background:"#1a5c38",color:"white",fontSize:15,fontWeight:700,cursor:"pointer",marginBottom:9}}>
-                  {isHotelType(listing.category)?`🏨 ${t.reserveLabel}`:`📅 ${t.contactTitle}`}
+                  {isHotelType(listing.category)?`🏨 ${t.reserveL}`:`📅 ${t.contactTitle}`}
                 </button>
                 <div style={{display:"flex",gap:8}}>
                   <a href={`https://wa.me/${formatPhone(listing.owner_phone||waNumber)}`} target="_blank" rel="noopener noreferrer"
@@ -233,8 +234,8 @@ export default function ListingPage({ params }) {
               </div>
             ):(
               <div style={{padding:"14px"}}>
-                <button onClick={()=>setView("info")} style={{background:"none",border:"none",color:"var(--text-3)",fontSize:13,cursor:"pointer",marginBottom:10}}>{t.backBtn}</button>
-                <h3 style={{fontFamily:"var(--font-display)",fontSize:18,marginBottom:4,color:"var(--text)"}}>{isHotelType(listing.category)?`🏨 ${t.reserveLabel}`:t.contactTitle}</h3>
+                <button onClick={()=>setView("info")} style={{background:"none",border:"none",color:"var(--text-3)",fontSize:13,cursor:"pointer",marginBottom:10}}>{t.back}</button>
+                <h3 style={{fontFamily:"var(--font-display)",fontSize:18,marginBottom:4,color:"var(--text)"}}>{isHotelType(listing.category)?`🏨 ${t.reserveL}`:t.contactTitle}</h3>
                 <p style={{fontSize:12,color:"var(--text-3)",marginBottom:12}}>{t.contactSub}</p>
                 <div style={{display:"flex",flexDirection:"column",gap:10}}>
                   {!isHotelType(listing.category)&&(
@@ -248,42 +249,43 @@ export default function ListingPage({ params }) {
                     </div>
                   )}
                   <div style={{display:"flex",gap:9}}>
-                    <div style={{flex:1}}><label style={lbl}>{t.nameLabel} *</label><input value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} style={inp} placeholder="Votre nom"/></div>
-                    <div style={{flex:1}}><label style={lbl}>{t.phoneLabel} *</label><input value={form.phone} onChange={e=>setForm(f=>({...f,phone:e.target.value}))} style={inp} placeholder="6XXXXXXXX" type="tel"/></div>
+                    <div style={{flex:1}}><label style={{fontSize:13,fontWeight:600,color:"#555555",display:"block",marginBottom:6}}>Nom complet *</label><input value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} style={inp} placeholder="Votre nom"/></div>
+                    <div style={{flex:1}}><label style={{fontSize:13,fontWeight:600,color:"#555555",display:"block",marginBottom:6}}>Téléphone *</label><input value={form.phone} onChange={e=>setForm(f=>({...f,phone:e.target.value.replace(/\D/g,'').slice(0,9)}))} style={inp} placeholder="6XXXXXXXX" type="tel" inputMode="numeric"/></div>
                   </div>
                   {isHotelType(listing.category)&&(
                     <>
                       <div style={{display:"flex",gap:9}}>
-                        <div style={{flex:1}}><label style={lbl}>{t.checkInLabel} *</label><input value={form.checkIn} onChange={e=>setForm(f=>({...f,checkIn:e.target.value}))} style={inp} type="date" min={new Date().toISOString().split("T")[0]}/></div>
-                        <div style={{flex:1}}><label style={lbl}>{t.checkOutLabel} *</label><input value={form.checkOut} onChange={e=>setForm(f=>({...f,checkOut:e.target.value}))} style={inp} type="date" min={form.checkIn||new Date().toISOString().split("T")[0]}/></div>
+                        <div style={{flex:1}}><label style={lbl}>{t.checkInLbl} *</label><input value={form.checkIn} onChange={e=>setForm(f=>({...f,checkIn:e.target.value}))} style={inp} type="date" min={new Date().toISOString().split("T")[0]}/></div>
+                        <div style={{flex:1}}><label style={lbl}>{t.checkOutLbl} *</label><input value={form.checkOut} onChange={e=>setForm(f=>({...f,checkOut:e.target.value}))} style={inp} type="date" min={form.checkIn||new Date().toISOString().split("T")[0]}/></div>
                       </div>
-                      <div><label style={lbl}>{t.guestsLabel}</label><input value={form.guests} onChange={e=>setForm(f=>({...f,guests:e.target.value}))} style={inp} type="number" min="1"/></div>
+                      <div><label style={lbl}>{t.guestsLbl}</label><input value={form.guests} onChange={e=>setForm(f=>({...f,guests:e.target.value}))} style={inp} type="number" min="1"/></div>
                     </>
                   )}
                   {isResidential(listing.category)&&contactType==='visite'&&(
                     <div style={{display:"flex",gap:9}}>
-                      <div style={{flex:1}}><label style={lbl}>{t.dateLabel} *</label><input value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))} style={inp} type="date" min={new Date().toISOString().split("T")[0]}/></div>
-                      <div style={{flex:1}}><label style={lbl}>{t.slotLabel} *</label>
+                      <div style={{flex:1}}><label style={{fontSize:13,fontWeight:600,color:"#555555",display:"block",marginBottom:6}}>Date souhaitée *</label><input value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))} style={inp} type="date" min={new Date().toISOString().split("T")[0]}/></div>
+                      <div style={{flex:1}}><label style={{fontSize:13,fontWeight:600,color:"#555555",display:"block",marginBottom:6}}>Créneau horaire *</label>
                         <select value={form.slot} onChange={e=>setForm(f=>({...f,slot:e.target.value}))} style={inp}>
-                          <option value="">{t.slotPlaceholder}</option>
+                          <option value="">{t.slotPh}</option>
                           {SLOTS.map(s=><option key={s} value={s}>{s}</option>)}
                         </select>
                       </div>
                     </div>
                   )}
                   {isCommercial(listing.category)&&(
-                    <div><label style={lbl}>{t.activityLabel}</label>
+                    <div><label style={lbl}>{t.activityLbl}</label>
                       <select value={form.activity} onChange={e=>setForm(f=>({...f,activity:e.target.value}))} style={inp}>
-                        <option value="">{t.activityPlaceholder}</option>
+                        <option value="">{t.activityPh}</option>
                         {LOCAL_TYPES[lang].map(a=><option key={a} value={a}>{a}</option>)}
                       </select>
                     </div>
                   )}
-                  <div><label style={lbl}>{t.msgLabel}</label><textarea value={form.message} onChange={e=>setForm(f=>({...f,message:e.target.value}))} style={{...inp,height:68,resize:"vertical"}}/></div>
+                  <div><label style={lbl}>{t.msgLbl}</label><textarea value={form.message} onChange={e=>setForm(f=>({...f,message:e.target.value}))} style={{...inp,height:68,resize:"vertical"}}/></div>
                   {formErr&&<div style={{color:"#c0392b",fontSize:12,padding:"8px 12px",background:"#fff5f5",borderRadius:8,border:"1px solid #ffcccc"}}>⚠️ {formErr}</div>}
+                  <button onClick={()=>handleContact("request")} disabled={formBusy} style={{width:"100%",padding:"13px",borderRadius:11,border:"none",background:"#1a5c38",color:"#ffffff",fontSize:15,fontWeight:700,cursor:"pointer",opacity:formBusy?0.7:1}}>✅ Envoyer la demande</button>
                   <div style={{display:"flex",gap:8}}>
-                    <button onClick={()=>handleContact("wa")} disabled={formBusy} style={{flex:1,padding:"13px",borderRadius:11,border:"none",background:"#25D366",color:"white",fontSize:14,fontWeight:700,cursor:"pointer",opacity:formBusy?0.7:1}}>📱 {t.whatsappBtn}</button>
-                    <button onClick={()=>handleContact("call")} disabled={formBusy} style={{flex:1,padding:"13px",borderRadius:11,border:"1.5px solid #aaa",background:"#f0f0f0",color:"#333",fontSize:14,cursor:"pointer",opacity:formBusy?0.7:1}}>📞 {t.callBtn}</button>
+                    <button onClick={()=>handleContact("wa")} disabled={formBusy} style={{flex:1,padding:"11px",borderRadius:11,border:"none",background:"#25D366",color:"#ffffff",fontSize:13,fontWeight:600,cursor:"pointer",opacity:formBusy?0.7:1}}>📱 WhatsApp</button>
+                    <button onClick={()=>handleContact("call")} disabled={formBusy} style={{flex:1,padding:"11px",borderRadius:11,border:"1.5px solid #cccccc",background:"#f0f0f0",color:"#222222",fontSize:13,fontWeight:600,cursor:"pointer",opacity:formBusy?0.7:1}}>📞 Appeler</button>
                   </div>
                 </div>
               </div>

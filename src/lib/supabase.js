@@ -259,6 +259,43 @@ export async function softDeleteVisit(id, actor = 'admin') {
   await addAuditLog({ actor, action: 'delete', entity: 'visit', entityId: id, entityName: old?.client_name });
 }
 
+export async function hardDeleteListing(id, actor = 'superadmin') {
+  console.log('[hardDeleteListing] called — id:', id, 'actor:', actor);
+  const { data: old } = await getClient().from('listings').select('*').eq('id', id).single();
+  if (old?.images && old.images.length > 0) {
+    const filenames = old.images.map(url => url.split('/').pop()).filter(Boolean);
+    if (filenames.length > 0) {
+      const { error: storageError } = await getClient().storage.from('listing-images').remove(filenames);
+      if (storageError) console.warn('[hardDeleteListing] storage delete error:', storageError.message);
+    }
+  }
+  const { error } = await getClient().from('listings').delete().eq('id', id);
+  console.log('[hardDeleteListing] delete result — error:', error);
+  if (error) throw error;
+  await addAuditLog({ actor, action: 'hard_delete', entity: 'listing', entityId: id, entityName: old?.title });
+  console.log('[hardDeleteListing] done — listing and images deleted:', id);
+}
+
+export async function hardDeleteVisit(id, actor = 'superadmin') {
+  console.log('[hardDeleteVisit] called — id:', id, 'actor:', actor);
+  const { data: old } = await getClient().from('visits').select('client_name').eq('id', id).single();
+  const { error } = await getClient().from('visits').delete().eq('id', id);
+  console.log('[hardDeleteVisit] delete result — error:', error);
+  if (error) throw error;
+  await addAuditLog({ actor, action: 'hard_delete', entity: 'visit', entityId: id, entityName: old?.client_name });
+  console.log('[hardDeleteVisit] done — visit deleted:', id);
+}
+
+export async function hardDeleteAuditLog(id) {
+  const { error } = await getClient().from('audit_logs').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function clearAllAuditLogs() {
+  const { error } = await getClient().from('audit_logs').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+  if (error) throw error;
+}
+
 // ─── Audit logs ───────────────────────────────────────────────────────────────
 export async function getAuditLogs({ limit = 50, offset = 0, entity = null, action = null } = {}) {
   let q = getClient().from('audit_logs').select('*').order('created_at', { ascending: false }).range(offset, offset + limit - 1);

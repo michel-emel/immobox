@@ -30,6 +30,4 @@ Thumbs.db
 
 # misc
 *.pem
-supabase-schema.sql
-supabase-v2-clean.sql
-supabase-v3-prod.sql
+/migrations

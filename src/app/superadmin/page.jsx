@@ -2,7 +2,7 @@
 export const dynamic = 'force-dynamic';
 
 import { useState, useEffect, useCallback } from "react";
-import { getClient, getSuperAdminPassword, getAllListingsSuperAdmin, getAllVisitsSuperAdmin, getAuditLogs, updateSetting, getSetting, restoreListing, updateListing, softDeleteVisit } from "@/lib/supabase";
+import { getClient, getSuperAdminPassword, getAllListingsSuperAdmin, getAllVisitsSuperAdmin, getAuditLogs, updateSetting, getSetting, restoreListing, updateListing, hardDeleteListing, hardDeleteVisit, hardDeleteAuditLog, clearAllAuditLogs } from "@/lib/supabase";
 import { CATEGORIES, CAT_COLORS, fmtPrice, getCatLabel } from "@/data";
 import { ConfirmModal, Toast, useConfirm } from "@/components/ui";
 
@@ -13,7 +13,7 @@ const chip = (bg,c) => ({ fontSize:11, padding:"2px 9px", borderRadius:6, backgr
 const ACTION_LABELS = {
   create:'Création', update:'Modification', delete:'Suppression', restore:'Restauration',
   approve:'Validation', reject:'Rejet', sold_rented:'Vendu/Loué', status_change:'Changement de statut',
-  submit:'Soumission', update_setting:'Paramètre modifié', login:'Connexion',
+  submit:'Soumission', update_setting:'Paramètre modifié', login:'Connexion', hard_delete:'Suppression définitive',
 };
 const ENTITY_LABELS = {
   listing:'Annonce', visit:'Visite', city:'Ville', neighborhood:'Quartier', settings:'Paramètre',
@@ -21,7 +21,7 @@ const ENTITY_LABELS = {
 const ACTION_COLORS = {
   create:'#27ae60', update:'#3498db', delete:'#e74c3c', restore:'#27ae60',
   approve:'#27ae60', reject:'#e74c3c', sold_rented:'#7b1fa2', status_change:'#e67e22',
-  submit:'#3498db', update_setting:'#e67e22',
+  submit:'#3498db', update_setting:'#e67e22', hard_delete:'#7b1fa2',
 };
 
 export default function SuperAdmin() {
@@ -104,10 +104,50 @@ export default function SuperAdmin() {
   }
 
   async function handleDeleteVisit(v) {
-    const ok = await confirm({ icon:"🗑️", title:`Supprimer la demande de "${v.client_name}" ?`, message:"Elle sera archivée définitivement.", confirmLabel:"Supprimer", danger:true });
+    const ok = await confirm({ icon:"🗑️", title:`Supprimer définitivement la demande de "${v.client_name}" ?`, message:"Suppression définitive — cette action est IRRÉVERSIBLE. L'enregistrement sera effacé de la base de données.", confirmLabel:"Supprimer définitivement", danger:true });
     if (!ok) return;
-    await softDeleteVisit(v.id, 'superadmin');
-    showToast("Demande supprimée"); loadAll();
+    try {
+      await hardDeleteVisit(v.id, 'superadmin');
+      showToast("Demande supprimée définitivement"); loadAll();
+    } catch (e) {
+      console.error('[handleDeleteVisit] error:', e);
+      showToast("Erreur suppression : " + e.message, "error");
+    }
+  }
+
+  async function handleHardDeleteListing(l) {
+    const ok = await confirm({ icon:"🗑️", title:`Supprimer définitivement "${l.title}" ?`, message:"Suppression définitive — cette action est IRRÉVERSIBLE. L'enregistrement sera effacé de la base de données.", confirmLabel:"Supprimer définitivement", danger:true });
+    if (!ok) return;
+    try {
+      await hardDeleteListing(l.id, 'superadmin');
+      showToast("Annonce supprimée définitivement"); loadAll();
+    } catch (e) {
+      console.error('[handleHardDeleteListing] error:', e);
+      showToast("Erreur suppression : " + e.message, "error");
+    }
+  }
+
+  async function handleDeleteLog(log) {
+    const ok = await confirm({ icon:"🗑️", title:"Supprimer cette entrée du journal ?", confirmLabel:"Supprimer", danger:true });
+    if (!ok) return;
+    try {
+      await hardDeleteAuditLog(log.id);
+      setLogs(prev => prev.filter(l => l.id !== log.id));
+    } catch (e) {
+      showToast("Erreur : " + e.message, "error");
+    }
+  }
+
+  async function handleClearLogs() {
+    const ok = await confirm({ icon:"⚠️", title:"Vider tout le journal d'audit ?", message:"Toutes les entrées seront effacées définitivement. Irréversible.", confirmLabel:"Vider", danger:true });
+    if (!ok) return;
+    try {
+      await clearAllAuditLogs();
+      setLogs([]);
+      showToast("Journal vidé ✓");
+    } catch (e) {
+      showToast("Erreur : " + e.message, "error");
+    }
   }
 
   async function saveAdminPw() {
@@ -278,7 +318,7 @@ export default function SuperAdmin() {
             {loading ? <Loader/> : (
               <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
                 {filteredListings.map(l => (
-                  <SuperListingRow key={l.id} l={l} onRestore={handleRestore} onBlock={handleBlock} />
+                  <SuperListingRow key={l.id} l={l} onRestore={handleRestore} onBlock={handleBlock} onHardDelete={handleHardDeleteListing} />
                 ))}
               </div>
             )}
@@ -305,10 +345,13 @@ export default function SuperAdmin() {
           <>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16, flexWrap:"wrap", gap:10 }}>
               <h2 style={{ fontFamily:"var(--font-display)", fontSize:22, fontWeight:600, color:"var(--text)" }}>Journal d'audit</h2>
-              <select value={logEntity} onChange={e => { setLogEntity(e.target.value); setLogsPage(0); }} style={{ padding:"7px 12px", borderRadius:9, border:"1.5px solid var(--border)", background:"var(--surface)", color:"var(--text)", fontSize:13, fontFamily:"var(--font-body)" }}>
-                <option value="">Toutes les entités</option>
-                {Object.entries(ENTITY_LABELS).map(([k,v]) => <option key={k} value={k}>{v}</option>)}
-              </select>
+              <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+                <select value={logEntity} onChange={e => { setLogEntity(e.target.value); setLogsPage(0); }} style={{ padding:"7px 12px", borderRadius:9, border:"1.5px solid var(--border)", background:"var(--surface)", color:"var(--text)", fontSize:13, fontFamily:"var(--font-body)" }}>
+                  <option value="">Toutes les entités</option>
+                  {Object.entries(ENTITY_LABELS).map(([k,v]) => <option key={k} value={k}>{v}</option>)}
+                </select>
+                <button onClick={handleClearLogs} style={{ padding:"7px 14px", borderRadius:9, border:"none", background:"#fff0f0", color:"#c0392b", fontSize:13, fontWeight:600, cursor:"pointer" }}>🗑️ Vider le journal</button>
+              </div>
             </div>
             {loading ? <Loader/> : (
               <div style={{ background:"var(--surface)", borderRadius:14, border:"1px solid var(--border)", overflow:"hidden" }}>
@@ -322,6 +365,7 @@ export default function SuperAdmin() {
                       {i < filteredLogs.length-1 && <div style={{ width:1, height:"100%", minHeight:20, background:"var(--border)", marginTop:4 }}/>}
                     </div>
                     <div style={{ flex:1, minWidth:0 }}>
+
                       <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:5, alignItems:"center" }}>
                         <span style={{ fontSize:12, padding:"2px 9px", borderRadius:20, background:ACTION_COLORS[log.action]+"22", color:ACTION_COLORS[log.action]||"var(--text-3)", fontWeight:700 }}>
                           {ACTION_LABELS[log.action]||log.action}
@@ -356,6 +400,7 @@ export default function SuperAdmin() {
                         </details>
                       )}
                     </div>
+                    <button onClick={() => handleDeleteLog(log)} style={{ flexShrink:0, alignSelf:"flex-start", padding:"5px 8px", borderRadius:7, border:"none", background:"transparent", color:"#c0392b", fontSize:15, cursor:"pointer", opacity:0.65 }} title="Supprimer cette entrée">🗑</button>
                   </div>
                 ))}
                 {hasMore && (
@@ -442,7 +487,7 @@ export default function SuperAdmin() {
 
 function Loader() { return <div style={{ textAlign:"center", padding:"44px 0", color:"var(--text-3)" }}>Chargement...</div>; }
 
-function SuperListingRow({ l, onRestore, onBlock }) {
+function SuperListingRow({ l, onRestore, onBlock, onHardDelete }) {
   const [open, setOpen] = useState(false);
   const cat = CATEGORIES.find(c=>c.value===l.category);
   const col = CAT_COLORS[l.category]||{bg:"#f5f5f5",text:"#555"};
@@ -475,7 +520,10 @@ function SuperListingRow({ l, onRestore, onBlock }) {
         <div style={{ borderTop:"1px solid var(--border)", padding:"11px 14px", display:"flex", gap:8, background:"var(--surface-2)" }}>
           <a href={`/annonces/${l.id}`} target="_blank" rel="noopener noreferrer" style={{ padding:"10px 14px", borderRadius:9, border:"1.5px solid var(--border)", background:"var(--surface)", color:"var(--text)", fontSize:12, textDecoration:"none", fontWeight:500 }}>🔗 Voir</a>
           {isDel
-            ? <button onClick={() => onRestore(l)} style={{ flex:1, padding:"10px", borderRadius:9, border:"none", background:"#e8f4ee", color:"#1a5c38", fontSize:13, fontWeight:600, cursor:"pointer" }}>♻️ Restaurer</button>
+            ? <>
+                <button onClick={() => onRestore(l)} style={{ flex:1, padding:"10px", borderRadius:9, border:"none", background:"#e8f4ee", color:"#1a5c38", fontSize:13, fontWeight:600, cursor:"pointer" }}>♻️ Restaurer</button>
+                <button onClick={() => onHardDelete(l)} style={{ padding:"10px 14px", borderRadius:9, border:"none", background:"#fff0f0", color:"#c0392b", fontSize:13, fontWeight:600, cursor:"pointer" }}>🗑️ Supprimer définitivement</button>
+              </>
             : <button onClick={() => onBlock(l)} style={{ flex:1, padding:"10px", borderRadius:9, border:"none", background:l.status==="active"?"#fff0f0":"#e8f4ee", color:l.status==="active"?"#c0392b":"#1a5c38", fontSize:13, fontWeight:600, cursor:"pointer" }}>
                 {l.status==="active" ? "🚫 Bloquer" : "✅ Débloquer"}
               </button>}
@@ -500,7 +548,7 @@ function SuperVisitRow({ v, onDelete }) {
             </span>
           </div>
           <p style={{ fontSize:14, fontWeight:600, color:"var(--text)", marginBottom:2 }}>{v.client_name} <span style={{ fontWeight:400, color:"var(--text-3)", fontSize:12 }}>· #{v.client_number}</span></p>
-          <p style={{ fontSize:11, color:"var(--text-3)" }}>{v.client_phone} · {v.listing_title || v.listing_city} · {new Date(v.created_at).toLocaleDateString('fr-FR')}</p>
+          <p style={{ fontSize:11, color:"var(--text-3)" }}>{(v.client_phone||'').replace(/^237/, '')} · {v.listing_title || v.listing_city} · {new Date(v.created_at).toLocaleDateString('fr-FR')}</p>
         </div>
         <span style={{ color:"var(--text-3)", fontSize:14, transform:open?"rotate(180deg)":"none", transition:"transform 0.2s", flexShrink:0 }}>▾</span>
       </div>

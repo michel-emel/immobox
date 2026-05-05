@@ -359,7 +359,7 @@ export default function Admin() {
         <VisitDetailPanel
           visitDetail={visitDetail} loadingDet={loadingDet} cities={loc.cities}
           copied={copied} onCopy={copyShareCard} onClose={() => setVisitDetail(null)}
-          onMove={moveVisit} onSold={handleSoldRented}
+          onMove={moveVisit} onSold={handleSoldRented} waNum={waNum}
         />
       )}
 
@@ -390,7 +390,7 @@ function PendingCard({ l, cities, onApprove, onReject, onEdit }) {
           </div>
           <p style={{ fontSize:14, fontWeight:500, color:"var(--text)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", marginBottom:3 }}>{l.title}</p>
           <p style={{ fontSize:11, color:"var(--text-3)" }}>{l.neighborhood?`${l.neighborhood}, `:""}{city} · {fmtPrice(l.price,l.type)}</p>
-          {l.owner_name && <p style={{ fontSize:11, color:"var(--text-3)", marginTop:2 }}>{l.owner_name}{l.owner_phone?` · ${l.owner_phone}`:""}</p>}
+          {l.owner_name && <p style={{ fontSize:11, color:"var(--text-3)", marginTop:2 }}>{l.owner_name}{l.owner_phone?` · ${l.owner_phone.replace(/^237/, '')}`:""}</p>}
         </div>
       </div>
       <div style={{ borderTop:"1px solid #fef3cd", padding:"11px 14px", display:"flex", gap:8, background:"#fffdf5" }}>
@@ -492,10 +492,14 @@ function VisitsView({ visits, cities, onMove, onOpen, onSold }) {
   );
 }
 
-function VisitDetailPanel({ visitDetail, loadingDet, cities, copied, onCopy, onClose, onMove, onSold }) {
+function VisitDetailPanel({ visitDetail, loadingDet, cities, copied, onCopy, onClose, onMove, onSold, waNum }) {
   const { visit: v, listing: l } = visitDetail;
   const cityLabel = cities.find(c => c.key === (l?.city || v.listing_city))?.label || l?.city || v.listing_city;
   const base = typeof window !== 'undefined' ? window.location.origin : '';
+  const ownerRaw = (l?.owner_phone || waNum || "").replace(/\D/g, "");
+  const ownerWaNum = ownerRaw.startsWith("237") ? ownerRaw : "237" + ownerRaw;
+  const ctLabel = v.contact_type === 'visite' ? '🏠 Visite' : v.contact_type === 'appel' ? '📞 Appel' : '🏨 Réservation';
+  const shareMsg = `Nouvelle demande pour votre annonce:\n🔗 ${l ? `${base}/annonces/${l.id}` : '—'}\n👤 ${v.client_name}\n📞 ${(v.client_phone||'').replace(/^237/, '')}\n📋 ${ctLabel}`;
 
   return (
     <div style={{ position:"fixed", inset:0, zIndex:300, background:"rgba(0,0,0,0.62)", display:"flex", alignItems:"flex-end" }} onClick={e => e.target===e.currentTarget && onClose()}>
@@ -514,7 +518,7 @@ function VisitDetailPanel({ visitDetail, loadingDet, cities, copied, onCopy, onC
             {/* Client */}
             <Section title="👤 Client">
               <Row label="Nom"      value={v.client_name} bold/>
-              <Row label="Tél."     value={v.client_phone}/>
+              <Row label="Tél."     value={v.client_phone?.replace(/^237/, '')}/>
               <Row label="N°"       value={`Client #${v.client_number}`}/>
               <Row label="Demande"  value={v.contact_type==='visite'?'🏠 Visite physique':v.contact_type==='appel'?'📞 Appel téléphonique':'🏨 Réservation'} accent/>
               {v.contact_type==='reservation'?(<><Row label="Arrivée" value={v.check_in}/><Row label="Départ" value={v.check_out}/><Row label="Personnes" value={v.guests}/></>):(<>{v.visit_date&&<Row label="Date" value={v.visit_date}/>}{v.visit_slot&&<Row label="Créneau" value={v.visit_slot}/>}</>)}
@@ -538,7 +542,7 @@ function VisitDetailPanel({ visitDetail, loadingDet, cities, copied, onCopy, onC
                   {l.description  && <p style={{ fontSize:13, color:"var(--text-2)", lineHeight:1.65, padding:"9px 12px", background:"var(--surface-2)", borderRadius:8 }}>{l.description}</p>}
                   {l.owner_phone && (
                     <div style={{ background:"var(--primary-lt)", borderRadius:10, padding:"11px 14px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                      <div><p style={{ fontSize:11, color:"var(--primary)", fontWeight:700, marginBottom:2 }}>Propriétaire</p><p style={{ fontSize:14, fontWeight:600, color:"var(--text)" }}>{l.owner_name||"—"}</p><p style={{ fontSize:12, color:"var(--text-2)" }}>{l.owner_phone}</p></div>
+                      <div><p style={{ fontSize:11, color:"var(--primary)", fontWeight:700, marginBottom:2 }}>Propriétaire</p><p style={{ fontSize:14, fontWeight:600, color:"var(--text)" }}>{l.owner_name||"—"}</p><p style={{ fontSize:12, color:"var(--text-2)" }}>{l.owner_phone.replace(/^237/, '')}</p></div>
                       <a href={`tel:${l.owner_phone}`} style={{ background:"var(--primary)", color:"white", borderRadius:9, padding:"8px 14px", fontSize:13, fontWeight:600, textDecoration:"none" }}>📞</a>
                     </div>
                   )}
@@ -577,7 +581,7 @@ function VisitDetailPanel({ visitDetail, loadingDet, cities, copied, onCopy, onC
                   <button onClick={() => onCopy(v, l)} style={{ flex:1, padding:"11px", borderRadius:10, border:"1.5px solid var(--border)", background:copied?"var(--primary)":"transparent", color:copied?"white":"var(--text)", fontSize:13, fontWeight:600, cursor:"pointer", transition:"all 0.2s" }}>
                     {copied ? "✓ Copié !" : "📋 Copier tout"}
                   </button>
-                  <a href={`https://wa.me/?text=${encodeURIComponent(`🔗 ${base}/annonces/${l?.id||''}\n👤 ${v.client_name}\n📞 ${v.client_phone}`)}`} target="_blank" rel="noopener noreferrer"
+                  <a href={`https://wa.me/${ownerWaNum}?text=${encodeURIComponent(shareMsg)}`} target="_blank" rel="noopener noreferrer"
                     style={{ flex:1, padding:"11px", borderRadius:10, background:"#25D366", color:"white", fontSize:13, fontWeight:600, textDecoration:"none", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
                     📱 WhatsApp
                   </a>
@@ -627,7 +631,7 @@ function ListingForm({ form, setForm, editing, inp, lbl, formErr, uploading, cit
       <div><p style={lbl}>Précision adresse</p><input value={form.precision} onChange={e=>setForm(f=>({...f,precision:e.target.value}))} style={inp} placeholder="Ex : face de Total Carrefour"/></div>
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
         <div><p style={lbl}>Nom propriétaire</p><input value={form.owner_name} onChange={e=>setForm(f=>({...f,owner_name:e.target.value}))} style={inp}/></div>
-        <div><p style={lbl}>Tél. propriétaire</p><input value={form.owner_phone} onChange={e=>setForm(f=>({...f,owner_phone:e.target.value}))} style={inp} type="tel" placeholder="237600000000"/></div>
+        <div><p style={lbl}>Tél. propriétaire</p><input value={form.owner_phone} onChange={e=>setForm(f=>({...f,owner_phone:e.target.value.replace(/\D/g,'').slice(0,9)}))} style={inp} type="tel" inputMode="numeric" placeholder="6XXXXXXXX"/></div>
       </div>
       <div><p style={lbl}>Description</p><textarea value={form.description} onChange={e=>setForm(f=>({...f,description:e.target.value}))} style={{...inp,height:90,resize:"vertical"}}/></div>
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>

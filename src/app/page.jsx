@@ -102,6 +102,7 @@ export default function Home() {
 
   async function handleContact(method) {
     if (!form.name || !form.phone) { setFormErr(t.required); return; }
+    if (!/^6\d{8}$/.test(form.phone)) { setFormErr("Numéro invalide — 9 chiffres commençant par 6 (ex: 655123456)."); return; }
     if (isHotelType(active.category) && (!form.checkIn || !form.checkOut)) { setFormErr(t.required); return; }
     if (isResidential(active.category) && contactType === 'visite' && (!form.date || !form.slot)) { setFormErr(t.required); return; }
     setFormBusy(true); setFormErr("");
@@ -129,6 +130,7 @@ export default function Home() {
 
   async function handleSubmit() {
     if (!subForm.title || !subForm.owner_name || !subForm.owner_phone) { setSubErr("Titre, votre nom et téléphone sont obligatoires."); return; }
+    if (!/^6\d{8}$/.test(subForm.owner_phone)) { setSubErr("Numéro invalide — 9 chiffres commençant par 6 (ex: 655123456)."); return; }
     if (showPrice(subForm.category) && !subForm.price) { setSubErr("Le prix est obligatoire."); return; }
     setSubBusy(true); setSubErr("");
     try {
@@ -470,7 +472,7 @@ function ContactForm({ active, form, setForm, contactType, setContactType, formE
         </div>
       )}
       <div><label style={lbl}>{t.nameLbl} *</label><input value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} style={inp} placeholder="Jean Dupont"/></div>
-      <div><label style={lbl}>{t.phoneLbl} *</label><input value={form.phone} onChange={e=>setForm(f=>({...f,phone:e.target.value}))} style={inp} placeholder="6XXXXXXXX" type="tel"/></div>
+      <div><label style={lbl}>{t.phoneLbl} *</label><input value={form.phone} onChange={e=>setForm(f=>({...f,phone:e.target.value.replace(/\D/g,'').slice(0,9)}))} style={inp} placeholder="6XXXXXXXX" type="tel" inputMode="numeric"/></div>
       {isHotelType(active.category) && (
         <>
           <div style={{ display:"flex", gap:12 }}>
@@ -527,7 +529,7 @@ function OwnerForm({ subForm, setSubForm, subGps, setSubGps, subErr, cities, sub
       </div>
       <div style={{ display:"flex", gap:12 }}>
         <div style={{ flex:1 }}><label style={lbl}>{t.ownerName} *</label><input value={subForm.owner_name} onChange={e=>setSubForm(f=>({...f,owner_name:e.target.value}))} style={inp} placeholder="Votre nom"/></div>
-        <div style={{ flex:1 }}><label style={lbl}>{t.ownerPhone} *</label><input value={subForm.owner_phone} onChange={e=>setSubForm(f=>({...f,owner_phone:e.target.value}))} style={inp} type="tel" placeholder="6XXXXXXXX"/></div>
+        <div style={{ flex:1 }}><label style={lbl}>{t.ownerPhone} *</label><input value={subForm.owner_phone} onChange={e=>setSubForm(f=>({...f,owner_phone:e.target.value.replace(/\D/g,'').slice(0,9)}))} style={inp} type="tel" inputMode="numeric" placeholder="6XXXXXXXX"/></div>
       </div>
       <div><label style={lbl}>Titre *</label><input value={subForm.title} onChange={e=>setSubForm(f=>({...f,title:e.target.value}))} style={inp} placeholder="Ex : Studio meublé à Bastos"/></div>
       {!isHotelType(subForm.category) && (
