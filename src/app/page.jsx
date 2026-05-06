@@ -15,6 +15,7 @@ const PH = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.o
 const inp = { width:"100%", padding:"11px 14px", borderRadius:10, border:"1.5px solid var(--border)", background:"var(--input-bg)", fontSize:15, color:"var(--text)", outline:"none", fontFamily:"var(--font-body)" };
 const lbl = { display:"block", fontSize:13, fontWeight:500, color:"var(--text-2)", marginBottom:6 };
 const EMPTY = { name:"", phone:"", date:"", slot:"", checkIn:"", checkOut:"", guests:1, activity:"", message:"" };
+const TITLE_PLACEHOLDERS = { chambre:"Ex : Chambre meublée à Bonamoussadi", studio:"Ex : Studio meublé à Bastos", appartement:"Ex : Appartement 3 pièces à Bonapriso", maison:"Ex : Villa 4 chambres à Odza", hotel:"Ex : Hôtel Le Palmier centre-ville", guest_house:"Ex : Guest House calme à Omnisport", terrain:"Ex : Terrain 500m² à Nkolbisson", commercial:"Ex : Local commercial à Akwa" };
 
 export default function Home() {
   const [lang,     setLang]     = useState("fr");
@@ -129,10 +130,20 @@ export default function Home() {
   }
 
   async function handleSubmit() {
-    if (!subForm.title || !subForm.owner_name || !subForm.owner_phone) { setSubErr("Titre, votre nom et téléphone sont obligatoires."); return; }
-    if (!/^6\d{8}$/.test(subForm.owner_phone)) { setSubErr("Numéro invalide — 9 chiffres commençant par 6 (ex: 655123456)."); return; }
-    if (showPrice(subForm.category) && !subForm.price) { setSubErr("Le prix est obligatoire."); return; }
-    setSubBusy(true); setSubErr("");
+    const errors = [];
+    if (!subForm.owner_name.trim()) errors.push("votre nom");
+    if (!subForm.owner_phone.trim()) errors.push("votre téléphone");
+    else if (!/^6\d{8}$/.test(subForm.owner_phone)) errors.push("numéro invalide (9 chiffres commençant par 6)");
+    if (!subForm.title.trim()) errors.push("le titre");
+    if (!subForm.city) errors.push("la ville");
+    if (!subForm.neighborhood) errors.push("le quartier");
+    if (!subForm.description.trim()) errors.push("la description");
+    if (subForm.images.length === 0) errors.push("au moins 1 photo");
+    if ((subForm.category === 'terrain' || subForm.category === 'commercial') && !subForm.surface) errors.push("la superficie");
+    if (subForm.category !== 'terrain' && !subForm.price) errors.push("le prix");
+    if (errors.length > 0) { setSubErr("Champs manquants : " + errors.join(", ") + "."); return; }
+    setSubErr("");
+    setSubBusy(true);
     try {
       await submitOwnerListing({ ...subForm, price: subForm.price ? parseInt(subForm.price) : 0, surface: subForm.surface ? parseInt(subForm.surface) : null, lat: subForm.lat ? parseFloat(subForm.lat) : null, lng: subForm.lng ? parseFloat(subForm.lng) : null });
       setSubSuccess(true);
@@ -168,17 +179,17 @@ export default function Home() {
       </header>
 
       {/* ── HERO ───────────────────────────────────────────────────────────── */}
-      <section style={{ padding:"48px 20px 32px", maxWidth:840, margin:"0 auto", textAlign:"center" }}>
-        <div style={{ display:"inline-flex", alignItems:"center", gap:8, background:"var(--primary-lt)", borderRadius:20, padding:"5px 18px", marginBottom:22, fontSize:13, color:"var(--primary)", fontWeight:500 }}>
-          <span style={{ width:7, height:7, borderRadius:"50%", background:"var(--primary)", display:"inline-block" }}/>
+      <section style={{ padding:"28px 20px 18px", maxWidth:760, margin:"0 auto", textAlign:"center" }}>
+        <div style={{ display:"inline-flex", alignItems:"center", gap:8, background:"var(--primary-lt)", borderRadius:20, padding:"4px 16px", marginBottom:16, fontSize:12, color:"var(--primary)", fontWeight:600, letterSpacing:0.2 }}>
+          <span style={{ width:6, height:6, borderRadius:"50%", background:"var(--primary)", display:"inline-block" }}/>
           {t.tagline}
         </div>
-        <h1 style={{ fontFamily:"var(--font-display)", fontSize:"clamp(36px,6vw,64px)", fontWeight:600, lineHeight:1.08, color:"var(--text)", marginBottom:18, letterSpacing:"-1.5px" }}>
+        <h1 style={{ fontFamily:"var(--font-display)", fontSize:"clamp(32px,5.5vw,58px)", fontWeight:600, lineHeight:1.1, color:"var(--text)", marginBottom:14, letterSpacing:"-1px" }}>
           {lang === "fr"
-            ? <>{lang === "fr" ? "Trouvez votre" : "Find your"} <em style={{ color:"var(--primary)", fontStyle:"italic" }}>{lang === "fr" ? "bien idéal" : "ideal property"}</em></>
+            ? <>Trouvez votre <em style={{ color:"var(--primary)", fontStyle:"italic" }}>bien idéal</em></>
             : <>Find your <em style={{ color:"var(--primary)", fontStyle:"italic" }}>ideal property</em></>}
         </h1>
-        <p style={{ fontSize:"clamp(14px,2vw,17px)", color:"var(--text-2)", maxWidth:560, margin:"0 auto", lineHeight:1.7, fontWeight:300 }}>{t.subtitle}</p>
+        <p style={{ fontSize:"clamp(13px,1.8vw,16px)", color:"var(--text-2)", maxWidth:480, margin:"0 auto", lineHeight:1.7, fontWeight:300 }}>{t.subtitle}</p>
       </section>
 
       {/* ── FILTERS ────────────────────────────────────────────────────────── */}
@@ -201,20 +212,20 @@ export default function Home() {
           )}
         </div>
         <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
-          <div style={{ display:"flex", background:"#f5f5f5", border:"1.5px solid #ddd", borderRadius:10, overflow:"hidden" }}>
+          <div style={{ display:"flex", background:"var(--surface-2)", border:"1.5px solid var(--border)", borderRadius:10, overflow:"hidden" }}>
             {[{v:"",l:t.allTypes},{v:"location",l:t.rentL},{v:"vente",l:t.saleL},{v:"reservation",l:t.reserveL}].map(opt => (
               <button key={opt.v} onClick={() => setSelType(opt.v)}
-                style={{ padding:"7px 13px", fontSize:12, border:"none", background:selType===opt.v?"#1a5c38":"transparent", color:selType===opt.v?"#ffffff":"#333333", fontWeight:selType===opt.v?700:400, cursor:"pointer", fontFamily:"var(--font-body)", whiteSpace:"nowrap" }}>
+                style={{ padding:"7px 13px", fontSize:12, border:"none", background:selType===opt.v?"var(--primary)":"transparent", color:selType===opt.v?"#ffffff":"var(--text)", fontWeight:selType===opt.v?700:400, cursor:"pointer", fontFamily:"var(--font-body)", whiteSpace:"nowrap", transition:"background 0.15s, color 0.15s" }}>
                 {opt.l}
               </button>
             ))}
           </div>
-          <select value={selCity} onChange={e => { setSelCity(e.target.value); setSelNeigh(""); }} style={{ padding:"7px 13px", borderRadius:10, border:"1.5px solid #ddd", background:"#ffffff", color:"#333333", fontSize:13, cursor:"pointer", fontFamily:"var(--font-body)" }}>
+          <select value={selCity} onChange={e => { setSelCity(e.target.value); setSelNeigh(""); }} style={{ padding:"7px 13px", borderRadius:10, border:"1.5px solid var(--border)", background:"var(--surface)", color:"var(--text)", fontSize:13, cursor:"pointer", fontFamily:"var(--font-body)" }}>
             <option value="">{t.allCities}</option>
             {cities.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
           </select>
           {selCity && (
-            <select value={selNeigh} onChange={e => setSelNeigh(e.target.value)} style={{ padding:"7px 13px", borderRadius:10, border:"1.5px solid #ddd", background:"#ffffff", color:"#333333", fontSize:13, cursor:"pointer", fontFamily:"var(--font-body)" }}>
+            <select value={selNeigh} onChange={e => setSelNeigh(e.target.value)} style={{ padding:"7px 13px", borderRadius:10, border:"1.5px solid var(--border)", background:"var(--surface)", color:"var(--text)", fontSize:13, cursor:"pointer", fontFamily:"var(--font-body)" }}>
               <option value="">{t.allNeighs}</option>
               {filtNeighs.map(n => <option key={n.id} value={n.name}>{n.name}</option>)}
             </select>
@@ -224,22 +235,22 @@ export default function Home() {
 
       {/* ── GRID ───────────────────────────────────────────────────────────── */}
       <main style={{ maxWidth:1200, margin:"0 auto", padding:"0 16px 80px" }}>
-        <p style={{ fontSize:13, color:"var(--text-3)", marginBottom:18 }}>
+        <p style={{ fontSize:13, color:"var(--text-3)", marginBottom:18, fontWeight:500 }}>
           {t.listingsCount(filtered.length)}
         </p>
         {loading ? (
           <>
             <style>{`@keyframes shimmer{0%{background-position:-600px 0}100%{background-position:600px 0}}`}</style>
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(285px, 1fr))", gap:22 }}>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(295px, 1fr))", gap:20 }}>
               {Array.from({ length: 6 }).map((_, i) => {
-                const sh = { background:"linear-gradient(90deg,#f0f0f0 25%,#e0e0e0 50%,#f0f0f0 75%)", backgroundSize:"600px 100%", animation:"shimmer 1.4s infinite linear" };
+                const sh = { background:"linear-gradient(90deg,var(--surface-2) 25%,var(--surface-3) 50%,var(--surface-2) 75%)", backgroundSize:"600px 100%", animation:"shimmer 1.4s infinite linear" };
                 return (
-                  <div key={i} style={{ background:"var(--surface)", border:"1px solid var(--border)", borderRadius:16, overflow:"hidden" }}>
-                    <div style={{ paddingTop:"62%", ...sh }}/>
-                    <div style={{ padding:"15px 17px 18px", display:"flex", flexDirection:"column", gap:10 }}>
-                      <div style={{ height:18, width:"45%", borderRadius:8, ...sh }}/>
-                      <div style={{ height:14, width:"85%", borderRadius:8, ...sh }}/>
-                      <div style={{ height:14, width:"55%", borderRadius:8, ...sh }}/>
+                  <div key={i} style={{ background:"var(--surface)", border:"1px solid var(--border)", borderRadius:18, overflow:"hidden" }}>
+                    <div style={{ paddingTop:"60%", ...sh }}/>
+                    <div style={{ padding:"14px 16px 16px", display:"flex", flexDirection:"column", gap:8 }}>
+                      <div style={{ height:16, width:"80%", borderRadius:6, ...sh }}/>
+                      <div style={{ height:13, width:"50%", borderRadius:6, ...sh }}/>
+                      <div style={{ height:22, width:"45%", borderRadius:6, ...sh, marginTop:4 }}/>
                     </div>
                   </div>
                 );
@@ -247,23 +258,32 @@ export default function Home() {
             </div>
           </>
         ) : filtered.length === 0 ? (
-          <div style={{ textAlign:"center", padding:"80px 0" }}>
-            <div style={{ fontSize:52, marginBottom:16 }}>🔍</div>
-            <p style={{ fontSize:18, fontWeight:500, color:"var(--text-2)", marginBottom:8 }}>{t.noResults}</p>
-            <p style={{ color:"var(--text-3)" }}>{t.noResultsSub}</p>
+          <div style={{ textAlign:"center", padding:"72px 20px" }}>
+            <div style={{ width:72, height:72, borderRadius:20, background:"var(--surface-2)", margin:"0 auto 20px", display:"flex", alignItems:"center", justifyContent:"center", fontSize:34, border:"1.5px solid var(--border)" }}>🔍</div>
+            <p style={{ fontSize:17, fontWeight:600, color:"var(--text)", marginBottom:8 }}>{t.noResults}</p>
+            <p style={{ fontSize:13, color:"var(--text-3)", maxWidth:280, margin:"0 auto 20px", lineHeight:1.6 }}>{t.noResultsSub}</p>
+            <button onClick={() => { setSelCats([]); setSelType(""); setSelCity(""); setSelNeigh(""); }}
+              style={{ padding:"9px 22px", borderRadius:20, border:"1.5px solid var(--primary)", background:"var(--primary-lt)", color:"var(--primary)", fontSize:13, fontWeight:600, cursor:"pointer" }}>
+              ✕ {t.reset}
+            </button>
           </div>
         ) : (
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(285px, 1fr))", gap:22 }}>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(295px, 1fr))", gap:20 }}>
             {filtered.map(l => <ListingCard key={l.id} listing={l} lang={lang} t={t} cities={cities} onClick={() => openListing(l)} />)}
           </div>
         )}
       </main>
 
       {/* ── FOOTER ─────────────────────────────────────────────────────────── */}
-      <footer style={{ borderTop:"1px solid var(--border)", padding:"30px 20px", textAlign:"center" }}>
-        <p style={{ fontFamily:"var(--font-display)", fontSize:24, color:"var(--primary)", fontWeight:600, marginBottom:5 }}>IMMO<span style={{ color:"var(--accent)", fontWeight:500 }}>BOX</span></p>
-        <p style={{ fontSize:13, color:"var(--text-3)", marginBottom:4 }}>{t.footerLine}</p>
-        <p style={{ fontSize:12, color:"var(--text-3)" }}>{t.copyright}</p>
+      <footer style={{ borderTop:"1px solid var(--border)", padding:"36px 20px 28px", textAlign:"center", background:"var(--surface)" }}>
+        <p style={{ fontFamily:"var(--font-display)", fontSize:26, color:"var(--primary)", fontWeight:600, marginBottom:6, letterSpacing:"-0.5px" }}>IMMO<span style={{ color:"var(--accent)", fontWeight:500 }}>BOX</span></p>
+        <p style={{ fontSize:13, color:"var(--text-3)", marginBottom:12, lineHeight:1.6 }}>{t.footerLine}</p>
+        <div style={{ display:"flex", justifyContent:"center", gap:20, marginBottom:16 }}>
+          <a href="/admin" style={{ fontSize:12, color:"var(--text-3)", textDecoration:"none", fontWeight:500 }}>Admin</a>
+          <span style={{ color:"var(--border)" }}>·</span>
+          <a href="/annonces" style={{ fontSize:12, color:"var(--text-3)", textDecoration:"none", fontWeight:500 }}>Toutes les annonces</a>
+        </div>
+        <p style={{ fontSize:11, color:"var(--text-3)", opacity:0.7 }}>{t.copyright}</p>
       </footer>
 
       {/* ── LISTING MODAL ──────────────────────────────────────────────────── */}
@@ -399,7 +419,7 @@ export default function Home() {
 
             {!subSuccess && subStep === 2 && (
               <div style={{ padding:"14px 22px", borderTop:"1px solid var(--border)", background:"var(--surface)", display:"flex", gap:10, flexShrink:0 }}>
-                <button onClick={() => setSubStep(1)} style={{ padding:"13px 18px", borderRadius:12, border:"1.5px solid #aaa", background:"#f0f0f0", fontSize:14, cursor:"pointer", color:"#333", fontWeight:500 }}>{t.cancel}</button>
+                <button onClick={() => { setSubStep(1); setSubErr(""); }} style={{ padding:"13px 18px", borderRadius:12, border:"1.5px solid #aaa", background:"#f0f0f0", fontSize:14, cursor:"pointer", color:"#333", fontWeight:500 }}>{t.cancel}</button>
                 <button onClick={handleSubmit} disabled={subBusy} style={{ flex:1, padding:"14px", borderRadius:12, border:"none", background:subBusy?"#999":"#1a5c38", color:"#ffffff", fontSize:15, fontWeight:700, cursor:subBusy?"not-allowed":"pointer" }}>
                   {subBusy ? "Envoi..." : t.submitBtn}
                 </button>
@@ -417,29 +437,42 @@ function ListingCard({ listing, lang, t, cities, onClick }) {
   const cat    = CATEGORIES.find(c => c.value === listing.category);
   const colors = CAT_COLORS[listing.category] || { bg:"#f5f5f5", text:"#555" };
   const city   = cities.find(c => c.key === listing.city)?.label || listing.city;
+  const typeColor = listing.type==="vente" ? "var(--accent)" : listing.type==="reservation" ? "#7b2fa8" : "var(--primary)";
   return (
-    <div onClick={onClick} className="immo-card" style={{ cursor:"pointer", overflow:"hidden" }}>
-      <div style={{ position:"relative", paddingTop:"62%", background:"#f0ece5", overflow:"hidden" }}>
-        <img src={listing.images?.[0] || PH} alt={listing.title} style={{ position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover", transition:"transform 0.4s" }} onError={e => e.target.src = PH}/>
-        <span style={{ position:"absolute", top:11, left:11, padding:"3px 12px", borderRadius:20, background:listing.type==="vente"?"var(--accent)":listing.type==="reservation"?"#7b2fa8":"var(--primary)", color:"white", fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:0.4 }}>
+    <div onClick={onClick} className="immo-card" style={{ cursor:"pointer" }}>
+      {/* Image */}
+      <div style={{ position:"relative", paddingTop:"60%", background:"var(--surface-3)", overflow:"hidden" }}>
+        <img src={listing.images?.[0] || PH} alt={listing.title} style={{ position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover" }} onError={e => e.target.src = PH}/>
+        <span style={{ position:"absolute", top:10, left:10, padding:"3px 11px", borderRadius:20, background:typeColor, color:"white", fontSize:10, fontWeight:700, textTransform:"uppercase", letterSpacing:0.6, backdropFilter:"blur(4px)" }}>
           {listing.type==="vente"?t.saleL:listing.type==="reservation"?t.reserveL:t.rentL}
         </span>
-        {listing.images?.length > 1 && <span style={{ position:"absolute", top:11, right:11, background:"rgba(0,0,0,0.52)", color:"white", borderRadius:20, padding:"2px 9px", fontSize:11 }}>📷 {listing.images.length}</span>}
-      </div>
-      <div style={{ padding:"15px 17px 18px" }}>
-        <span style={{ display:"inline-block", marginBottom:10, padding:"3px 10px", borderRadius:6, fontSize:12, background:colors.bg, color:colors.text, fontWeight:700 }}>
-          {cat?.emoji} {lang === "fr" ? cat?.labelFr : cat?.labelEn}
-        </span>
-        <h3 style={{ fontSize:15, fontWeight:500, lineHeight:1.35, marginBottom:6, color:"var(--text)" }}>{listing.title}</h3>
-        <p style={{ fontSize:12, color:"var(--text-3)", marginBottom:10 }}>📍 {listing.neighborhood ? `${listing.neighborhood}, ` : ""}{city}</p>
-        {showPrice(listing.category) && listing.price > 0 ? (
-          <p style={{ fontFamily:"var(--font-display)", fontSize:21, fontWeight:600, color:"var(--primary)", marginBottom:10 }}>{fmtPrice(listing.price, listing.type)}</p>
-        ) : isTerrain(listing.category) && (
-          <p style={{ fontSize:12, color:"var(--text-3)", marginBottom:10, fontStyle:"italic" }}>{t.priceOnDemand}</p>
+        {listing.images?.length > 1 && (
+          <span style={{ position:"absolute", bottom:8, right:10, background:"rgba(0,0,0,0.55)", color:"white", borderRadius:20, padding:"2px 9px", fontSize:11, backdropFilter:"blur(4px)" }}>
+            📷 {listing.images.length}
+          </span>
         )}
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-          <span style={{ fontSize:11, color:"var(--text-3)" }}>👥 {t.interested(listing.interest_count || 0)}</span>
-          {listing.surface && <span style={{ fontSize:11, color:"var(--text-3)" }}>📐 {listing.surface} m²</span>}
+      </div>
+      {/* Body */}
+      <div style={{ padding:"14px 16px 16px", display:"flex", flexDirection:"column", gap:6 }}>
+        <h3 style={{ fontSize:14, fontWeight:600, lineHeight:1.4, color:"var(--text)", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", overflow:"hidden" }}>{listing.title}</h3>
+        <p style={{ fontSize:12, color:"var(--text-3)", display:"flex", alignItems:"center", gap:4 }}>
+          <span>📍</span>
+          <span style={{ overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{listing.neighborhood ? `${listing.neighborhood}, ` : ""}{city}</span>
+        </p>
+        {showPrice(listing.category) && listing.price > 0 ? (
+          <p style={{ fontFamily:"var(--font-display)", fontSize:22, fontWeight:600, color:"var(--primary)", marginTop:2 }}>{fmtPrice(listing.price, listing.type)}</p>
+        ) : isTerrain(listing.category) ? (
+          <p style={{ fontSize:12, color:"var(--text-3)", fontStyle:"italic", marginTop:2 }}>{t.priceOnDemand}</p>
+        ) : null}
+        {/* Footer */}
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:4, paddingTop:10, borderTop:"1px solid var(--border)" }}>
+          <span style={{ padding:"2px 9px", borderRadius:6, fontSize:11, background:colors.bg, color:colors.text, fontWeight:700 }}>
+            {cat?.emoji} {lang === "fr" ? cat?.labelFr : cat?.labelEn}
+          </span>
+          <div style={{ display:"flex", gap:9, alignItems:"center" }}>
+            {listing.surface && <span style={{ fontSize:11, color:"var(--text-3)" }}>📐 {listing.surface} m²</span>}
+            <span style={{ fontSize:11, color:"var(--text-3)" }}>👥 {listing.interest_count || 0}</span>
+          </div>
         </div>
       </div>
     </div>
@@ -531,7 +564,7 @@ function OwnerForm({ subForm, setSubForm, subGps, setSubGps, subErr, cities, sub
         <div style={{ flex:1 }}><label style={lbl}>{t.ownerName} *</label><input value={subForm.owner_name} onChange={e=>setSubForm(f=>({...f,owner_name:e.target.value}))} style={inp} placeholder="Votre nom"/></div>
         <div style={{ flex:1 }}><label style={lbl}>{t.ownerPhone} *</label><input value={subForm.owner_phone} onChange={e=>setSubForm(f=>({...f,owner_phone:e.target.value.replace(/\D/g,'').slice(0,9)}))} style={inp} type="tel" inputMode="numeric" placeholder="6XXXXXXXX"/></div>
       </div>
-      <div><label style={lbl}>Titre *</label><input value={subForm.title} onChange={e=>setSubForm(f=>({...f,title:e.target.value}))} style={inp} placeholder="Ex : Studio meublé à Bastos"/></div>
+      <div><label style={lbl}>Titre *</label><input value={subForm.title} onChange={e=>setSubForm(f=>({...f,title:e.target.value}))} style={inp} placeholder={TITLE_PLACEHOLDERS[subForm.category] || "Ex : Titre de votre annonce"}/></div>
       {!isHotelType(subForm.category) && (
         <div><label style={lbl}>Type de transaction</label>
           <select value={subForm.type} onChange={e=>setSubForm(f=>({...f,type:e.target.value}))} style={inp}>
@@ -542,7 +575,7 @@ function OwnerForm({ subForm, setSubForm, subGps, setSubGps, subErr, cities, sub
       {isTerrain(subForm.category) && <div style={{ background:"#e8f5e9", border:"1px solid #a5d6a7", borderRadius:9, padding:"9px 13px", fontSize:12, color:"#2e7d32" }}>🌿 Le prix ne sera pas affiché — il sera discuté directement.</div>}
       <div style={{ display:"flex", gap:12 }}>
         {!isTerrain(subForm.category) && <div style={{ flex:1 }}><label style={lbl}>{isHotelType(subForm.category)?"Prix/nuit (FCFA) *":"Prix (FCFA) *"}</label><input value={subForm.price} onChange={e=>setSubForm(f=>({...f,price:e.target.value}))} style={inp} type="number"/></div>}
-        {!isHotelType(subForm.category) && <div style={{ flex:1 }}><label style={lbl}>{isTerrain(subForm.category)?"Superficie (m²) *":"Surface (m²)"}</label><input value={subForm.surface} onChange={e=>setSubForm(f=>({...f,surface:e.target.value}))} style={inp} type="number"/></div>}
+        {!isHotelType(subForm.category) && <div style={{ flex:1 }}><label style={lbl}>{(isTerrain(subForm.category)||isCommercial(subForm.category))?"Superficie (m²) *":"Surface (m²)"}</label><input value={subForm.surface} onChange={e=>setSubForm(f=>({...f,surface:e.target.value}))} style={inp} type="number"/></div>}
       </div>
       {isCommercial(subForm.category) && <div><label style={lbl}>Type de local</label><select value={subForm.local_type} onChange={e=>setSubForm(f=>({...f,local_type:e.target.value}))} style={inp}><option value="">— Choisir —</option>{LOCAL_TYPES.fr.map(lt=><option key={lt} value={lt}>{lt}</option>)}</select></div>}
       {isHotelType(subForm.category) && (
@@ -553,13 +586,13 @@ function OwnerForm({ subForm, setSubForm, subGps, setSubGps, subErr, cities, sub
         </div>
       )}
       <div style={{ display:"flex", gap:12 }}>
-        <div style={{ flex:1 }}><label style={lbl}>Ville</label>
+        <div style={{ flex:1 }}><label style={lbl}>Ville *</label>
           <select value={subForm.city} onChange={e=>setSubForm(f=>({...f,city:e.target.value,neighborhood:""}))} style={inp}>
             <option value="">— Choisir —</option>
             {cities.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
           </select>
         </div>
-        <div style={{ flex:1 }}><label style={lbl}>Quartier</label>
+        <div style={{ flex:1 }}><label style={lbl}>Quartier *</label>
           <select value={subForm.neighborhood} onChange={e=>setSubForm(f=>({...f,neighborhood:e.target.value}))} style={inp}>
             <option value="">— Choisir —</option>
             {subNeighs.map(n => <option key={n.id} value={n.name}>{n.name}</option>)}
@@ -567,7 +600,7 @@ function OwnerForm({ subForm, setSubForm, subGps, setSubGps, subErr, cities, sub
         </div>
       </div>
       <div><label style={lbl}>Précision adresse</label><input value={subForm.precision} onChange={e=>setSubForm(f=>({...f,precision:e.target.value}))} style={inp} placeholder="Ex : face de Total Carrefour"/></div>
-      <div><label style={lbl}>Description</label><textarea value={subForm.description} onChange={e=>setSubForm(f=>({...f,description:e.target.value}))} style={{...inp,height:90,resize:"vertical"}} placeholder="Détails du bien..."/></div>
+      <div><label style={lbl}>Description *</label><textarea value={subForm.description} onChange={e=>setSubForm(f=>({...f,description:e.target.value}))} style={{...inp,height:90,resize:"vertical"}} placeholder="Détails du bien..."/></div>
       <div>
         <label style={lbl}>Position GPS (optionnel)</label>
         <div style={{ display:"flex", gap:9, alignItems:"center", marginBottom:8 }}>
@@ -578,7 +611,7 @@ function OwnerForm({ subForm, setSubForm, subGps, setSubGps, subErr, cities, sub
         </div>
       </div>
       <div>
-        <label style={lbl}>Photos {subForm.images.length > 0 && `(${subForm.images.length})`}</label>
+        <label style={lbl}>Photos (min. 1) * {subForm.images.length > 0 && `(${subForm.images.length})`}</label>
         {subForm.images.length > 0 && (
           <div style={{ display:"flex", gap:7, flexWrap:"wrap", marginBottom:10 }}>
             {subForm.images.map((url, i) => (
@@ -595,7 +628,12 @@ function OwnerForm({ subForm, setSubForm, subGps, setSubGps, subErr, cities, sub
           <input type="file" accept="image/*" multiple onChange={onPhoto} style={{ display:"none" }}/>
         </label>
       </div>
-      {subErr && <div style={{ color:"#c0392b", fontSize:13, padding:"10px 14px", background:"#fff5f5", borderRadius:9, border:"1px solid #ffcccc" }}>⚠️ {subErr}</div>}
+      {subErr && (
+        <div style={{ display:"flex", alignItems:"flex-start", gap:10, padding:"12px 14px", background:"#fff5f5", border:"1.5px solid #e74c3c", borderRadius:10, color:"#c0392b", fontSize:13, fontWeight:500, lineHeight:1.5 }}>
+          <span style={{ fontSize:16, flexShrink:0 }}>⚠️</span>
+          <span>{subErr}</span>
+        </div>
+      )}
     </div>
   );
 }

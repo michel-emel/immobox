@@ -86,14 +86,18 @@ img          { display: block; }
 .immo-card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: 18px;
   overflow: hidden;
-  transition: transform 0.22s ease, box-shadow 0.22s ease;
+  transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
   box-shadow: var(--shadow-sm);
 }
-.immo-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); }
-.immo-card:hover img { transform: scale(1.04); }
-.immo-card img { transition: transform 0.4s ease; }
+.immo-card:hover { transform: translateY(-6px); box-shadow: 0 20px 56px rgba(0,0,0,0.13); border-color: transparent; }
+.immo-card:hover img { transform: scale(1.06); }
+.immo-card img { transition: transform 0.45s ease; }
+
+/* ── Focus rings ── */
+button:focus-visible { outline: 2.5px solid var(--primary); outline-offset: 2px; border-radius: 4px; }
+input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--primary); outline-offset: -1px; }
 
 /* ── Responsive ── */
 @media (max-width: 640px)  { .desktop-only { display: none !important; } }

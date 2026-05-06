@@ -46,6 +46,9 @@ export default function SuperAdmin() {
   // Filter
   const [listFilter, setListFilter]   = useState("all");
   const [logEntity,  setLogEntity]    = useState("");
+  // Listing detail panel
+  const [listingDetail,     setListingDetail]     = useState(null);
+  const [loadingListingDet, setLoadingListingDet] = useState(false);
 
   const { confirm, handleClose, showToast, config: confirmCfg, toast } = useConfirm();
 
@@ -87,6 +90,24 @@ export default function SuperAdmin() {
     const next = !darkMode; setDarkMode(next);
     document.documentElement.setAttribute('data-theme', next ? 'dark' : '');
     localStorage.setItem('immo-theme', next ? 'dark' : 'light');
+  }
+
+  function openListingDetail(l) {
+    setListingDetail(l);
+  }
+
+  async function handleHardDeleteFromDetail(l) {
+    const ok = await confirm({ icon:"⚠️", title:"Suppression définitive ?", message:`"${l.title}" sera effacé de la base de données ainsi que toutes ses photos. Action IRRÉVERSIBLE.`, confirmLabel:"Supprimer définitivement", danger:true });
+    if (!ok) return;
+    try {
+      await hardDeleteListing(l.id, 'superadmin');
+      setListings(prev => prev.filter(x => x.id !== l.id));
+      setListingDetail(null);
+      showToast("Annonce supprimée définitivement ✓");
+      loadAll();
+    } catch(e) {
+      showToast("Erreur : " + e.message, "error");
+    }
   }
 
   async function handleRestore(l) {
@@ -318,7 +339,7 @@ export default function SuperAdmin() {
             {loading ? <Loader/> : (
               <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
                 {filteredListings.map(l => (
-                  <SuperListingRow key={l.id} l={l} onRestore={handleRestore} onBlock={handleBlock} onHardDelete={handleHardDeleteListing} />
+                  <SuperListingRow key={l.id} l={l} onRestore={handleRestore} onBlock={handleBlock} onHardDelete={handleHardDeleteListing} onView={openListingDetail} />
                 ))}
               </div>
             )}
@@ -479,6 +500,106 @@ export default function SuperAdmin() {
         ))}
       </nav>
 
+      {listingDetail && (
+        <div style={{ position:"fixed", inset:0, zIndex:300, background:"rgba(0,0,0,0.62)", display:"flex", alignItems:"flex-end" }}
+          onClick={e => e.target===e.currentTarget && setListingDetail(null)}>
+          <div style={{ background:"var(--bg)", borderRadius:"22px 22px 0 0", width:"100%", maxHeight:"93vh", display:"flex", flexDirection:"column", boxShadow:"0 -12px 50px rgba(0,0,0,0.28)" }}>
+            {/* Header */}
+            <div style={{ padding:"11px 20px 14px", borderBottom:"1px solid var(--border)", flexShrink:0 }}>
+              <div style={{ width:36, height:4, borderRadius:2, background:"var(--border)", margin:"0 auto 13px" }}/>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                <p style={{ fontFamily:"var(--font-display)", fontSize:19, fontWeight:600, color:"var(--text)" }}>Détail de l'annonce</p>
+                <button onClick={() => setListingDetail(null)} style={{ background:"var(--surface-2)", border:"none", borderRadius:"50%", width:32, height:32, fontSize:15, cursor:"pointer", color:"var(--text)" }}>✕</button>
+              </div>
+            </div>
+            {/* Content */}
+            <div style={{ flex:1, overflowY:"auto", padding:"18px 20px" }}>
+              <div style={{ maxWidth:580, margin:"0 auto", display:"flex", flexDirection:"column", gap:14 }}>
+                {/* Status badges */}
+                <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+                  {listingDetail.deleted_at && (
+                    <span style={{ padding:"4px 12px", borderRadius:20, background:"#fce4ec", color:"#c62828", fontSize:12, fontWeight:700 }}>🗑️ Supprimée</span>
+                  )}
+                  {!listingDetail.deleted_at && (
+                    <span style={{ padding:"4px 12px", borderRadius:20,
+                      background: listingDetail.status==='active'?"#e8f4ee": listingDetail.status==='pending'?"#fff8e1": listingDetail.status==='rejected'?"#fce4ec":"#f3e5f5",
+                      color: listingDetail.status==='active'?"#1a5c38": listingDetail.status==='pending'?"#e67e22": listingDetail.status==='rejected'?"#c62828":"#7b1fa2",
+                      fontSize:12, fontWeight:700 }}>
+                      {listingDetail.status==='active'?'✅ Active': listingDetail.status==='pending'?'⏳ En attente': listingDetail.status==='rejected'?'❌ Rejetée':'🏠 Vendu/Loué'}
+                    </span>
+                  )}
+                </div>
+                {/* Photos */}
+                {listingDetail.images?.length > 0 && (
+                  <div style={{ display:"flex", gap:7, overflowX:"auto", paddingBottom:4 }}>
+                    {listingDetail.images.map((url, i) => (
+                      <div key={i} style={{ width:120, height:90, borderRadius:10, overflow:"hidden", flexShrink:0, border: i===0?"2.5px solid var(--primary)":"1.5px solid var(--border)" }}>
+                        <img src={url} alt="" style={{ width:"100%", height:"100%", objectFit:"cover" }}/>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {/* Info rows */}
+                <div style={{ background:"var(--surface)", borderRadius:14, border:"1px solid var(--border)", overflow:"hidden" }}>
+                  <div style={{ padding:"11px 16px", background:"var(--surface-2)", borderBottom:"1px solid var(--border)" }}>
+                    <p style={{ fontSize:13, fontWeight:700, color:"var(--text-2)" }}>📋 Informations</p>
+                  </div>
+                  <div style={{ padding:"14px 16px", display:"flex", flexDirection:"column", gap:10 }}>
+                    {[
+                      ["Titre",        listingDetail.title],
+                      ["Catégorie",    listingDetail.category],
+                      ["Type",         listingDetail.type],
+                      ["Prix",         listingDetail.price ? new Intl.NumberFormat('fr-CM').format(listingDetail.price) + ' FCFA' : '—'],
+                      ["Surface",      listingDetail.surface ? listingDetail.surface + ' m²' : '—'],
+                      ["Ville",        listingDetail.city],
+                      ["Quartier",     listingDetail.neighborhood],
+                      ["Précision",    listingDetail.precision],
+                      ["Propriétaire", listingDetail.owner_name],
+                      ["Tél. proprio", listingDetail.owner_phone?.replace(/^237/,'')],
+                      ["Soumis par",   listingDetail.submitted_by],
+                      ["Intérêt",      (listingDetail.interest_count ?? 0) + ' personne(s)'],
+                      ["Créé le",      new Date(listingDetail.created_at).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})],
+                      ["Supprimé le",  listingDetail.deleted_at ? new Date(listingDetail.deleted_at).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'}) : null],
+                    ].filter(([,v]) => v).map(([label, value]) => (
+                      <div key={label} style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:14 }}>
+                        <span style={{ fontSize:12, color:"var(--text-3)", flexShrink:0 }}>{label}</span>
+                        <span style={{ fontSize:13, fontWeight:500, color:"var(--text)", textAlign:"right", wordBreak:"break-word" }}>{value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {/* Description */}
+                {listingDetail.description && (
+                  <div style={{ background:"var(--surface)", borderRadius:14, border:"1px solid var(--border)", padding:"14px 16px" }}>
+                    <p style={{ fontSize:11, textTransform:"uppercase", letterSpacing:1.2, color:"var(--text-3)", fontWeight:700, marginBottom:8 }}>Description</p>
+                    <p style={{ fontSize:14, color:"var(--text-2)", lineHeight:1.75 }}>{listingDetail.description}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+            {/* Action buttons */}
+            <div style={{ padding:"13px 20px", borderTop:"1px solid var(--border)", background:"var(--surface)", display:"flex", gap:10, flexShrink:0 }}>
+              {listingDetail.deleted_at && (
+                <button onClick={() => { handleRestore(listingDetail); setListingDetail(null); }}
+                  style={{ flex:1, padding:"13px", borderRadius:11, border:"none", background:"#e8f4ee", color:"#1a5c38", fontSize:14, fontWeight:600, cursor:"pointer" }}>
+                  ♻️ Restaurer
+                </button>
+              )}
+              {!listingDetail.deleted_at && (
+                <button onClick={() => { handleBlock(listingDetail); setListingDetail(null); }}
+                  style={{ flex:1, padding:"13px", borderRadius:11, border:"none", background: listingDetail.status==='active'?"#fff0f0":"#e8f4ee", color: listingDetail.status==='active'?"#c0392b":"#1a5c38", fontSize:14, fontWeight:600, cursor:"pointer" }}>
+                  {listingDetail.status==='active'?'🚫 Bloquer':'✅ Débloquer'}
+                </button>
+              )}
+              <button onClick={() => handleHardDeleteFromDetail(listingDetail)}
+                style={{ flex:1, padding:"13px", borderRadius:11, border:"none", background:"#c0392b", color:"white", fontSize:14, fontWeight:700, cursor:"pointer" }}>
+                🗑️ Supprimer définitivement
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <ConfirmModal config={confirmCfg} onClose={handleClose}/>
       <Toast toast={toast}/>
     </div>
@@ -487,7 +608,7 @@ export default function SuperAdmin() {
 
 function Loader() { return <div style={{ textAlign:"center", padding:"44px 0", color:"var(--text-3)" }}>Chargement...</div>; }
 
-function SuperListingRow({ l, onRestore, onBlock, onHardDelete }) {
+function SuperListingRow({ l, onRestore, onBlock, onHardDelete, onView }) {
   const [open, setOpen] = useState(false);
   const cat = CATEGORIES.find(c=>c.value===l.category);
   const col = CAT_COLORS[l.category]||{bg:"#f5f5f5",text:"#555"};
@@ -518,7 +639,7 @@ function SuperListingRow({ l, onRestore, onBlock, onHardDelete }) {
       </div>
       {open && (
         <div style={{ borderTop:"1px solid var(--border)", padding:"11px 14px", display:"flex", gap:8, background:"var(--surface-2)" }}>
-          <a href={`/annonces/${l.id}`} target="_blank" rel="noopener noreferrer" style={{ padding:"10px 14px", borderRadius:9, border:"1.5px solid var(--border)", background:"var(--surface)", color:"var(--text)", fontSize:12, textDecoration:"none", fontWeight:500 }}>🔗 Voir</a>
+          <button onClick={() => onView(l)} style={{ padding:"10px 14px", borderRadius:9, border:"1.5px solid var(--border)", background:"var(--surface)", color:"var(--text)", fontSize:12, fontWeight:500, cursor:"pointer" }}>👁 Détail</button>
           {isDel
             ? <>
                 <button onClick={() => onRestore(l)} style={{ flex:1, padding:"10px", borderRadius:9, border:"none", background:"#e8f4ee", color:"#1a5c38", fontSize:13, fontWeight:600, cursor:"pointer" }}>♻️ Restaurer</button>

@@ -13,6 +13,7 @@ const inp = { width:"100%",padding:"11px 13px",borderRadius:9,border:"1.5px soli
 const lbl = { display:"block",fontSize:11,fontWeight:700,color:"var(--text-3)",marginBottom:5,textTransform:"uppercase",letterSpacing:0.5 };
 const chip = (bg,c) => ({ fontSize:11,padding:"2px 9px",borderRadius:6,background:bg,color:c,fontWeight:600 });
 const ACTOR = 'admin';
+const TITLE_PLACEHOLDERS = { chambre:"Ex : Chambre meublée à Bonamoussadi", studio:"Ex : Studio meublé à Bastos", appartement:"Ex : Appartement 3 pièces à Bonapriso", maison:"Ex : Villa 4 chambres à Odza", hotel:"Ex : Hôtel Le Palmier centre-ville", guest_house:"Ex : Guest House calme à Omnisport", terrain:"Ex : Terrain 500m² à Nkolbisson", commercial:"Ex : Local commercial à Akwa" };
 
 export default function Admin() {
   const [authed,   setAuthed]   = useState(false);
@@ -87,7 +88,7 @@ export default function Admin() {
 
   function openNew()  { setEditing(null); setForm({...EMPTY}); setFormErr(""); setFormStep(1); setShowForm(true); document.body.style.overflow="hidden"; }
   function openEdit(l){ setEditing(l.id); setForm({title:l.title||"",category:l.category||"",type:l.type||"location",price:l.price||"",surface:l.surface||"",city:l.city||"",neighborhood:l.neighborhood||"",precision:l.precision||"",description:l.description||"",images:l.images||[],status:l.status||"active",owner_phone:l.owner_phone||"",owner_name:l.owner_name||"",lat:l.lat||"",lng:l.lng||"",amenities:l.amenities||[],local_type:l.local_type||""}); setFormErr(""); setFormStep(2); setShowForm(true); document.body.style.overflow="hidden"; }
-  function closeForm(){ setShowForm(false); setFormStep(1); document.body.style.overflow=""; }
+  function closeForm(){ setShowForm(false); setFormStep(1); setFormErr(""); document.body.style.overflow=""; }
 
   async function handlePhoto(e) {
     const files = Array.from(e.target.files); if (!files.length) return;
@@ -98,9 +99,17 @@ export default function Admin() {
   }
 
   async function saveListing() {
-    if (!form.title.trim()) { setFormErr("Le titre est obligatoire."); return; }
-    if (!isTerrain(form.category) && !form.price) { setFormErr("Le prix est obligatoire."); return; }
-    setSaving(true); setFormErr("");
+    const errors = [];
+    if (!form.title.trim()) errors.push("le titre");
+    if (!form.city) errors.push("la ville");
+    if (!form.neighborhood) errors.push("le quartier");
+    if (!form.description.trim()) errors.push("la description");
+    if (!form.images || form.images.length === 0) errors.push("au moins 1 photo");
+    if ((form.category === 'terrain' || form.category === 'commercial') && !form.surface) errors.push("la superficie");
+    if (form.category !== 'terrain' && !form.price) errors.push("le prix");
+    if (errors.length > 0) { setFormErr("Champs manquants : " + errors.join(", ") + "."); return; }
+    setFormErr("");
+    setSaving(true);
     const payload = { ...form, price:parseInt(form.price)||0, surface:form.surface?parseInt(form.surface):null, lat:form.lat?parseFloat(form.lat):null, lng:form.lng?parseFloat(form.lng):null };
     try {
       editing ? await updateListing(editing, payload, ACTOR) : await createListing(payload, ACTOR);
@@ -607,7 +616,7 @@ function VisitDetailPanel({ visitDetail, loadingDet, cities, copied, onCopy, onC
 function ListingForm({ form, setForm, editing, inp, lbl, formErr, uploading, cities, formNeighs, onPhoto }) {
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:14, maxWidth:580, margin:"0 auto" }}>
-      <div><p style={lbl}>Titre *</p><input value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))} style={inp} placeholder="Ex : Studio meublé à Bastos"/></div>
+      <div><p style={lbl}>Titre *</p><input value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))} style={inp} placeholder={TITLE_PLACEHOLDERS[form.category] || "Ex : Titre de votre annonce"}/></div>
       {editing ? (
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
           <div><p style={lbl}>Catégorie</p><select value={form.category} onChange={e=>{const c=e.target.value;setForm(f=>({...f,category:c,type:defaultType(c),price:"",amenities:[],local_type:""}));}} style={inp}>{CATEGORIES.map(c=><option key={c.value} value={c.value}>{c.emoji} {c.labelFr}</option>)}</select></div>
@@ -620,27 +629,27 @@ function ListingForm({ form, setForm, editing, inp, lbl, formErr, uploading, cit
       {isHotelType(form.category) && <div style={{ background:"#fdf0ff", border:"1px solid #ce93d8", borderRadius:8, padding:"8px 12px", fontSize:12, color:"#7b1fa2" }}>🏨 Prix affiché comme tarif par nuit.</div>}
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
         {!isTerrain(form.category)  && <div><p style={lbl}>{isHotelType(form.category)?"Prix/nuit *":"Prix FCFA *"}</p><input value={form.price} onChange={e=>setForm(f=>({...f,price:e.target.value}))} style={inp} type="number"/></div>}
-        {!isHotelType(form.category) && <div><p style={lbl}>{isTerrain(form.category)?"Superficie m² *":"Surface m²"}</p><input value={form.surface} onChange={e=>setForm(f=>({...f,surface:e.target.value}))} style={inp} type="number"/></div>}
+        {!isHotelType(form.category) && <div><p style={lbl}>{(isTerrain(form.category)||isCommercial(form.category))?"Superficie m² *":"Surface m²"}</p><input value={form.surface} onChange={e=>setForm(f=>({...f,surface:e.target.value}))} style={inp} type="number"/></div>}
       </div>
       {isCommercial(form.category) && <div><p style={lbl}>Type de local</p><select value={form.local_type} onChange={e=>setForm(f=>({...f,local_type:e.target.value}))} style={inp}><option value="">— Choisir —</option>{LOCAL_TYPES.fr.map(lt=><option key={lt} value={lt}>{lt}</option>)}</select></div>}
       {isHotelType(form.category) && <div><p style={lbl}>Équipements</p><div style={{ display:"flex", flexWrap:"wrap", gap:7 }}>{AMENITIES.map(a=>{const on=(form.amenities||[]).includes(a.value);return<button key={a.value} type="button" onClick={()=>setForm(f=>({...f,amenities:on?(f.amenities||[]).filter(x=>x!==a.value):[...(f.amenities||[]),a.value]}))} style={{ padding:"6px 12px",borderRadius:20,border:`1.5px solid ${on?"var(--primary)":"var(--border)"}`,background:on?"var(--primary-lt)":"transparent",color:on?"var(--primary)":"var(--text-3)",fontSize:12,fontWeight:on?600:400,cursor:"pointer" }}>{a.emoji} {a.labelFr}</button>;})}</div></div>}
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-        <div><p style={lbl}>Ville</p><select value={form.city} onChange={e=>setForm(f=>({...f,city:e.target.value,neighborhood:""}))} style={inp}><option value="">— Choisir —</option>{cities.map(c=><option key={c.key} value={c.key}>{c.label}</option>)}</select></div>
-        <div><p style={lbl}>Quartier</p><select value={form.neighborhood} onChange={e=>setForm(f=>({...f,neighborhood:e.target.value}))} style={inp}><option value="">— Choisir —</option>{formNeighs.map(n=><option key={n.id} value={n.name}>{n.name}{!n.active?" (inactif)":""}</option>)}</select></div>
+        <div><p style={lbl}>Ville *</p><select value={form.city} onChange={e=>setForm(f=>({...f,city:e.target.value,neighborhood:""}))} style={inp}><option value="">— Choisir —</option>{cities.map(c=><option key={c.key} value={c.key}>{c.label}</option>)}</select></div>
+        <div><p style={lbl}>Quartier *</p><select value={form.neighborhood} onChange={e=>setForm(f=>({...f,neighborhood:e.target.value}))} style={inp}><option value="">— Choisir —</option>{formNeighs.map(n=><option key={n.id} value={n.name}>{n.name}{!n.active?" (inactif)":""}</option>)}</select></div>
       </div>
       <div><p style={lbl}>Précision adresse</p><input value={form.precision} onChange={e=>setForm(f=>({...f,precision:e.target.value}))} style={inp} placeholder="Ex : face de Total Carrefour"/></div>
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
         <div><p style={lbl}>Nom propriétaire</p><input value={form.owner_name} onChange={e=>setForm(f=>({...f,owner_name:e.target.value}))} style={inp}/></div>
         <div><p style={lbl}>Tél. propriétaire</p><input value={form.owner_phone} onChange={e=>setForm(f=>({...f,owner_phone:e.target.value.replace(/\D/g,'').slice(0,9)}))} style={inp} type="tel" inputMode="numeric" placeholder="6XXXXXXXX"/></div>
       </div>
-      <div><p style={lbl}>Description</p><textarea value={form.description} onChange={e=>setForm(f=>({...f,description:e.target.value}))} style={{...inp,height:90,resize:"vertical"}}/></div>
+      <div><p style={lbl}>Description *</p><textarea value={form.description} onChange={e=>setForm(f=>({...f,description:e.target.value}))} style={{...inp,height:90,resize:"vertical"}}/></div>
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
         <div><p style={lbl}>Latitude GPS</p><input value={form.lat} onChange={e=>setForm(f=>({...f,lat:e.target.value}))} style={inp} type="number" step="any" placeholder="3.848"/></div>
         <div><p style={lbl}>Longitude GPS</p><input value={form.lng} onChange={e=>setForm(f=>({...f,lng:e.target.value}))} style={inp} type="number" step="any" placeholder="11.502"/></div>
       </div>
       <div><p style={lbl}>Statut</p><select value={form.status} onChange={e=>setForm(f=>({...f,status:e.target.value}))} style={inp}><option value="active">✅ Actif</option><option value="sold_rented">🔴 Vendu / Loué</option><option value="pending">⏳ En attente</option></select></div>
       <div>
-        <p style={lbl}>Photos {uploading && <span style={{ fontWeight:400, textTransform:"none", color:"var(--accent)" }}> — envoi...</span>}</p>
+        <p style={lbl}>Photos (min. 1) * {uploading && <span style={{ fontWeight:400, textTransform:"none", color:"var(--accent)" }}> — envoi...</span>}</p>
         {form.images.length > 0 && (
           <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:10 }}>
             {form.images.map((url,i) => (
@@ -656,7 +665,12 @@ function ListingForm({ form, setForm, editing, inp, lbl, formErr, uploading, cit
           <input type="file" accept="image/*" multiple onChange={onPhoto} disabled={uploading} style={{ display:"none" }}/>
         </label>
       </div>
-      {formErr && <div style={{ background:"#fff5f5", border:"1px solid #ffcccc", borderRadius:10, padding:"11px 14px", color:"#c0392b", fontSize:13 }}>⚠️ {formErr}</div>}
+      {formErr && (
+        <div style={{ display:"flex", alignItems:"flex-start", gap:10, padding:"12px 14px", background:"#fff5f5", border:"1.5px solid #e74c3c", borderRadius:10, color:"#c0392b", fontSize:13, fontWeight:500, lineHeight:1.5 }}>
+          <span style={{ fontSize:16, flexShrink:0 }}>⚠️</span>
+          <span>{formErr}</span>
+        </div>
+      )}
     </div>
   );
 }
